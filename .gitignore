@@ -9,3 +9,28 @@ prueba_v1c3nt3/**/*.jar
 prueba_v1c3nt3/**/*.class
 # Ignore backup git dirs
 **/.git.bak
+# Keep only prueba_v1c3nt3/app and prueba_v1c3nt3/k8s; ignore other content under prueba_v1c3nt3
+prueba_v1c3nt3/*
+!prueba_v1c3nt3/app/
+!prueba_v1c3nt3/app/**
+!prueba_v1c3nt3/k8s/
+!prueba_v1c3nt3/k8s/**
+
+# Ignore terraform providers, state and local caches
+prueba_v1c3nt3/infra/.terraform/
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.lock.hcl
+
+# Ignore build artifacts
+**/target/
+**/*.jar
+**/*.class
+
+# Ignore backup git dirs created earlier
+**/.git.bak
+
+# Ignore secrets file
+prueba_v1c3nt3/alecho02_accessKeys.csv
+
