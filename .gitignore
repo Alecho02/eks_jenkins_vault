@@ -1,0 +1,12 @@
+# Ignore backup git dirs created by script
+**/.git.bak
+
+# Ignore common build / terraform artifacts
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.lock.hcl
+**/target/
+*.jar
+*.class
+*.log
