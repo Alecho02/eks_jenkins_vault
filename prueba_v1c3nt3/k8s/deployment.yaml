@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microservice-devops
+  namespace: microservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: microservice-devops
+  template:
+    metadata:
+      labels:
+        app: microservice-devops
+    spec:
+      containers:
+        - name: microservice-devops
+          image: 385205418910.dkr.ecr.eu-west-1.amazonaws.com/microservice-devops:2.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SECRET_VALUE
+              valueFrom:
+                secretKeyRef:
+                  name: microservice-secrets
+                  key: SECRET_VALUE
+            - name: CONFIG_VALUE
+              valueFrom:
+                configMapKeyRef:
+                  name: microservice-config
+                  key: CONFIG_VALUE
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microservice-devops-svc
+  namespace: microservice
+spec:
+  type: LoadBalancer   # Para verlo desde fuera. Si quieres sólo interno, usa ClusterIP.
+  selector:
+    app: microservice-devops
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+

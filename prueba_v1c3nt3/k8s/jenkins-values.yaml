@@ -1,0 +1,19 @@
+controller:
+  # Imagen de Jenkins
+  image:
+    registry: docker.io
+    repository: jenkins/jenkins
+    tag: "lts-jdk17"
+    pullPolicy: IfNotPresent
+
+  # Exponer Jenkins hacia internet (ALB/NLB de AWS)
+  serviceType: LoadBalancer
+  servicePort: 8080
+
+  # Opcional pero útil
+  jenkinsUrl: ""
+  jenkinsUriPrefix: "/"
+
+persistence:
+  # Para la prueba podemos desactivar el PVC
+  enabled: false
