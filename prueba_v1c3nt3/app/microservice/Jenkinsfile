@@ -16,7 +16,7 @@ podTemplate(
 ) {
     node('ci-agent') {
 
-        def APP_DIR = 'app/microservice'
+        def APP_DIR = 'prueba_v1c3nt3/app/microservice'
 
         stage('Checkout') {
             checkout scm
@@ -29,6 +29,8 @@ podTemplate(
                 }
             }
         }
+
+        sh 'pwd && ls && ls prueba_v1c3nt3 && ls prueba_v1c3nt3/app/microservice'
 
         stage('Package') {
             container('maven') {
