@@ -56,11 +56,13 @@ podTemplate(
         // 5) kubectl para desplegar al cluster de dev
         containerTemplate(
             name: 'kubectl',
-            image: 'registry.k8s.io/kubectl:v1.30.4',
+            image: 'bitnami/kubectl:latest',   // imagen con /bin/sh y /bin/cat
             ttyEnabled: true,
-            command: 'cat',
+            command: 'sh',
+            args: '-c cat',
             workingDir: '/home/jenkins/agent'
         )
+
     ],
     // Donde Docker guardará sus capas (solo dentro del pod del build)
     volumes: [
