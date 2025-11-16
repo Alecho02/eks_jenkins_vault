@@ -5,6 +5,7 @@ podTemplate(
     namespace: 'jenkins',
     serviceAccount: 'jenkins',
     containers: [
+
         // 1) Build Java
         containerTemplate(
             name: 'maven',
@@ -14,7 +15,7 @@ podTemplate(
             workingDir: '/home/jenkins/agent'
         ),
 
-        // 2) AWS CLI (para ECR login y eks update-kubeconfig)
+        // 2) AWS CLI (ECR + EKS + kubectl)
         containerTemplate(
             name: 'aws',
             image: 'amazon/aws-cli:2.15.36',
@@ -33,7 +34,7 @@ podTemplate(
             args: '-c cat',
             workingDir: '/home/jenkins/agent',
             envVars: [
-                envVar(key: 'DOCKER_HOST', value: 'tcp://localhost:2375'),
+                envVar(key: 'DOCKER_HOST',       value: 'tcp://localhost:2375'),
                 envVar(key: 'DOCKER_TLS_CERTDIR', value: '')
             ]
         ),
@@ -48,21 +49,10 @@ podTemplate(
             args: '--host=tcp://0.0.0.0:2375',
             workingDir: '/home/jenkins/agent',
             envVars: [
-                // Desactivar TLS en el daemon para que coincida con el cliente
+                // Desactivar TLS en el daemon para que coincida con el cliente Docker
                 envVar(key: 'DOCKER_TLS_CERTDIR', value: '')
             ]
-        ),
-
-        // 5) kubectl para desplegar al cluster de dev
-        containerTemplate(
-            name: 'kubectl',
-            image: 'bitnami/kubectl:latest',   // imagen con /bin/sh y /bin/cat
-            ttyEnabled: true,
-            command: 'sh',
-            args: '-c cat',
-            workingDir: '/home/jenkins/agent'
         )
-
     ],
     // Donde Docker guardará sus capas (solo dentro del pod del build)
     volumes: [
@@ -144,7 +134,8 @@ podTemplate(
             }
         }
 
-        stage('Preparar kubeconfig para eks-development') {
+        // kubeconfig + kubectl + deploy TODO EN EL CONTENEDOR "aws"
+        stage('Deploy a EKS (dev)') {
             container('aws') {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
@@ -155,41 +146,37 @@ podTemplate(
                     sh """
                         set -e
                         export AWS_REGION=${AWS_REGION}
+
+                        echo "Actualizando kubeconfig..."
                         aws eks update-kubeconfig \\
                           --name ${EKS_CLUSTER} \\
                           --region ${AWS_REGION} \\
                           --kubeconfig "${KUBECONFIG_FILE}"
+
+                        echo "Instalando kubectl (si no existe)..."
+                        if ! command -v kubectl >/dev/null 2>&1; then
+                          if command -v curl >/dev/null 2>&1; then
+                            curl -L -o kubectl "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl"
+                          else
+                            wget -O kubectl "https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl"
+                          fi
+                          chmod +x kubectl
+                          mv kubectl /usr/local/bin/kubectl
+                        fi
+
+                        echo "Versión de kubectl:"
+                        kubectl version --client
+
+                        echo "Probando acceso al cluster (namespaces):"
+                        kubectl --kubeconfig="${KUBECONFIG_FILE}" get ns
+
+                        echo "Aplicando manifiesto en namespace microservice..."
+                        kubectl --kubeconfig="${KUBECONFIG_FILE}" apply -f ${K8S_MANIFEST}
+
+                        echo "Estado de pods en namespace microservice:"
+                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice get pods
                     """
                 }
-            }
-        }
-
-        // Pequeño check para ver que kubectl funciona en el contenedor
-        stage('Probar kubectl') {
-            container('kubectl') {
-                sh """
-                    set -e
-                    echo "Versión de kubectl:"
-                    kubectl version --client
-                    echo "Namespaces del cluster:"
-                    kubectl --kubeconfig="${KUBECONFIG_FILE}" get ns
-                """
-            }
-        }
-
-        stage('Deploy a EKS (dev)') {
-            container('kubectl') {
-                sh """
-                    set -e
-                    echo "Usando kubeconfig: ${KUBECONFIG_FILE}"
-                    kubectl --kubeconfig="${KUBECONFIG_FILE}" get nodes
-
-                    echo "Aplicando manifiesto en namespace microservice..."
-                    kubectl --kubeconfig="${KUBECONFIG_FILE}" apply -f ${K8S_MANIFEST}
-
-                    echo "Estado de pods"
-                    kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice get pods
-                """
             }
         }
     }
