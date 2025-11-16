@@ -56,10 +56,9 @@ podTemplate(
         // 5) kubectl para desplegar al cluster de dev
         containerTemplate(
             name: 'kubectl',
-            image: 'bitnami/kubectl:latest',   // o la tag que prefieras
+            image: 'registry.k8s.io/kubectl:v1.30.4',
             ttyEnabled: true,
-            command: 'sh',
-            args: '-c cat',
+            command: 'cat',
             workingDir: '/home/jenkins/agent'
         )
     ],
@@ -160,6 +159,19 @@ podTemplate(
                           --kubeconfig "${KUBECONFIG_FILE}"
                     """
                 }
+            }
+        }
+
+        // Pequeño check para ver que kubectl funciona en el contenedor
+        stage('Probar kubectl') {
+            container('kubectl') {
+                sh """
+                    set -e
+                    echo "Versión de kubectl:"
+                    kubectl version --client
+                    echo "Namespaces del cluster:"
+                    kubectl --kubeconfig="${KUBECONFIG_FILE}" get ns
+                """
             }
         }
 
