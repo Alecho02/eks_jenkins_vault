@@ -148,9 +148,9 @@ podTemplate(
                         export AWS_REGION=${AWS_REGION}
 
                         echo "Actualizando kubeconfig..."
-                        aws eks update-kubeconfig \\
-                          --name ${EKS_CLUSTER} \\
-                          --region ${AWS_REGION} \\
+                        aws eks update-kubeconfig \
+                          --name ${EKS_CLUSTER} \
+                          --region ${AWS_REGION} \
                           --kubeconfig "${KUBECONFIG_FILE}"
 
                         echo "Instalando kubectl (si no existe)..."
@@ -164,16 +164,19 @@ podTemplate(
                           mv kubectl /usr/local/bin/kubectl
                         fi
 
-                        echo "Versión de kubectl:"
-                        kubectl version --client
-
-                        echo "Probando acceso al cluster (namespaces):"
-                        kubectl --kubeconfig="${KUBECONFIG_FILE}" get ns
-
-                        echo "Aplicando manifiesto en namespace microservice..."
+                        echo "Aplicando manifiesto base (namespace, service, etc.)..."
                         kubectl --kubeconfig="${KUBECONFIG_FILE}" apply -f ${K8S_MANIFEST}
 
-                        echo "Estado de pods en namespace microservice:"
+                        echo "Actualizando deployment con la imagen del build..."
+                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice \
+                          set image deployment/microservice-devops \
+                          microservice-devops=${FULL_IMAGE} --record
+
+                        echo "Esperando rollout..."
+                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice \
+                          rollout status deployment/microservice-devops
+
+                        echo "Pods en el namespace microservice:"
                         kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice get pods
                     """
                 }
