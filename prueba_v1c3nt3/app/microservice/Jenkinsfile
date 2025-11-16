@@ -1,36 +1,18 @@
 pipeline {
     agent {
         kubernetes {
+            // Usa la plantilla estática definida en Jenkins ("ci-agent")
+            inheritFrom 'ci-agent'
             label 'ci-agent'
             defaultContainer 'maven'
-            yaml """
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    app: jenkins-ci-agent
-spec:
-  serviceAccountName: jenkins
-  containers:
-    - name: maven
-      image: maven:3.9.6-eclipse-temurin-17
-      imagePullPolicy: IfNotPresent
-      command:
-        - cat           # MUY IMPORTANTE: que el contenedor no se salga
-      tty: true
-      resources:
-        requests:
-          cpu: "250m"
-          memory: "512Mi"
-        limits:
-          cpu: "1"
-          memory: "1Gi"
-"""
         }
     }
 
     environment {
-        APP_DIR = 'prueba_v1c3nt3/app/microservice'
+        // Dentro del workspace el repo se chequea completo,
+        // y como el Jenkinsfile está en app/microservice,
+        // la ruta relativa es simplemente:
+        APP_DIR = 'app/microservice'
     }
 
     stages {
