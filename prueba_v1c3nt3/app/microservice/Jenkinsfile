@@ -5,7 +5,7 @@ podTemplate(
     namespace: 'jenkins',
     serviceAccount: 'jenkins',
     containers: [
-        // 1) Build Java (Maven)
+        // 1) Build Java
         containerTemplate(
             name: 'maven',
             image: 'maven:3.9-eclipse-temurin-17',
@@ -46,13 +46,17 @@ podTemplate(
             privileged: true,
             command: 'dockerd-entrypoint.sh',
             args: '--host=tcp://0.0.0.0:2375',
-            workingDir: '/home/jenkins/agent'
+            workingDir: '/home/jenkins/agent',
+            envVars: [
+                // 🔑 Desactivar TLS en el daemon para que coincida con el cliente
+                envVar(key: 'DOCKER_TLS_CERTDIR', value: '')
+            ]
         ),
 
         // 5) kubectl para desplegar al cluster de dev
         containerTemplate(
             name: 'kubectl',
-            image: 'bitnami/kubectl:latest', // imagen con /bin/sh
+            image: 'bitnami/kubectl:latest',   // o la que estés usando ahora
             ttyEnabled: true,
             command: 'sh',
             args: '-c cat',
@@ -99,7 +103,7 @@ podTemplate(
             }
         }
 
-        stage('Login ECR (AWS CLI)') {
+        stage('Login ECR (AWS CLI)) {
             container('aws') {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
@@ -121,13 +125,11 @@ podTemplate(
             container('docker') {
                 sh """
                     set -e
-                    docker version
-
                     echo "Autenticando contra ECR..."
                     PASS=\$(cat "${ECR_PASSWORD_FILE}")
                     echo "\$PASS" | docker login \\
                       --username AWS \\
-                      --password-stdin https://${ECR_REGISTRY}
+                      --password-stdin ${ECR_REGISTRY}
 
                     echo "Build de la imagen: ${FULL_IMAGE}"
                     docker build \\
@@ -137,9 +139,6 @@ podTemplate(
 
                     echo "Push de la imagen a ECR..."
                     docker push ${FULL_IMAGE}
-
-                    # Opcional: borrar el archivo de password
-                    rm -f "${ECR_PASSWORD_FILE}"
                 """
             }
         }
@@ -171,7 +170,7 @@ podTemplate(
                     echo "Usando kubeconfig: ${KUBECONFIG_FILE}"
                     kubectl --kubeconfig="${KUBECONFIG_FILE}" get nodes
 
-                    echo "Actualizando deployment en namespace microservice..."
+                    echo "Aplicando manifiesto en namespace microservice..."
                     kubectl --kubeconfig="${KUBECONFIG_FILE}" apply -f ${K8S_MANIFEST}
 
                     echo "Estado de pods"
