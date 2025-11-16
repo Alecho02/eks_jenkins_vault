@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: microservice-devops
-          image: 385205418910.dkr.ecr.eu-west-1.amazonaws.com/microservice-devops:lastest
+          image: 385205418910.dkr.ecr.eu-west-1.amazonaws.com/microservice-devops:2.0
           ports:
             - containerPort: 8080
           env:
