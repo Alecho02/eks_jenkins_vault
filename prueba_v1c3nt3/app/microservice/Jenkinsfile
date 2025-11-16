@@ -5,7 +5,7 @@ podTemplate(
     namespace: 'jenkins',
     serviceAccount: 'jenkins',
     containers: [
-        // 1) Build Java
+        // 1) Build Java (Maven)
         containerTemplate(
             name: 'maven',
             image: 'maven:3.9-eclipse-temurin-17',
@@ -49,10 +49,10 @@ podTemplate(
             workingDir: '/home/jenkins/agent'
         ),
 
-        // 5) kubectl para desplegar al cluster de dev
+        // 5) kubectl para desplegar al cluster de dev (imagen con /bin/sh)
         containerTemplate(
             name: 'kubectl',
-            image: 'registry.k8s.io/kubectl:v1.30.4',
+            image: 'bitnami/kubectl:1.30',   // 👈 imagen con shell
             ttyEnabled: true,
             command: 'sh',
             args: '-c cat',
@@ -68,15 +68,15 @@ podTemplate(
     node('ci-agent') {
 
         // === Constantes de tu entorno ===
-        def APP_DIR        = 'prueba_v1c3nt3/app/microservice'
-        def AWS_REGION     = 'eu-west-1'
-        def ECR_REGISTRY   = '385205418910.dkr.ecr.eu-west-1.amazonaws.com'
-        def ECR_REPO       = "${ECR_REGISTRY}/microservice-devops"
-        def EKS_CLUSTER    = 'eks-development'
-        def K8S_MANIFEST   = 'k8s/development/deployment.yaml'
-        def IMAGE_TAG      = "build-${env.BUILD_NUMBER}"
-        def FULL_IMAGE     = "${ECR_REPO}:${IMAGE_TAG}"
-        def KUBECONFIG_FILE = "${env.WORKSPACE}/kubeconfig"
+        def APP_DIR          = 'prueba_v1c3nt3/app/microservice'
+        def AWS_REGION       = 'eu-west-1'
+        def ECR_REGISTRY     = '385205418910.dkr.ecr.eu-west-1.amazonaws.com'
+        def ECR_REPO         = "${ECR_REGISTRY}/microservice-devops"
+        def EKS_CLUSTER      = 'eks-development'
+        def K8S_MANIFEST     = 'k8s/development/deployment.yaml'
+        def IMAGE_TAG        = "build-${env.BUILD_NUMBER}"
+        def FULL_IMAGE       = "${ECR_REPO}:${IMAGE_TAG}"
+        def KUBECONFIG_FILE  = "${env.WORKSPACE}/kubeconfig"
         def ECR_PASSWORD_FILE = "${env.WORKSPACE}/ecr_password.txt"
 
         stage('Checkout') {
@@ -100,7 +100,6 @@ podTemplate(
         }
 
         stage('Login ECR (AWS CLI)') {
-            // Sacamos el password de ECR y lo guardamos en un archivo compartido
             container('aws') {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
@@ -140,7 +139,6 @@ podTemplate(
         }
 
         stage('Preparar kubeconfig para eks-development') {
-            // Creamos un kubeconfig en el WORKSPACE
             container('aws') {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
