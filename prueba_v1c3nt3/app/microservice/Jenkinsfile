@@ -52,7 +52,7 @@ podTemplate(
         // 5) kubectl para desplegar al cluster de dev (imagen con /bin/sh)
         containerTemplate(
             name: 'kubectl',
-            image: 'bitnami/kubectl:1.30',   // 👈 imagen con shell
+            image: 'bitnami/kubectl:latest',   // 👈 imagen con shell
             ttyEnabled: true,
             command: 'sh',
             args: '-c cat',
