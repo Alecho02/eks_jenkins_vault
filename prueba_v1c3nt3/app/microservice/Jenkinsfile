@@ -49,10 +49,10 @@ podTemplate(
             workingDir: '/home/jenkins/agent'
         ),
 
-        // 5) kubectl para desplegar al cluster de dev (imagen con /bin/sh)
+        // 5) kubectl para desplegar al cluster de dev
         containerTemplate(
             name: 'kubectl',
-            image: 'bitnami/kubectl:latest',   // 👈 imagen con shell
+            image: 'bitnami/kubectl:latest', // imagen con /bin/sh
             ttyEnabled: true,
             command: 'sh',
             args: '-c cat',
@@ -110,6 +110,7 @@ podTemplate(
                     sh """
                         set -e
                         aws --version
+                        aws sts get-caller-identity
                         aws ecr get-login-password --region ${AWS_REGION} > "${ECR_PASSWORD_FILE}"
                     """
                 }
@@ -120,11 +121,13 @@ podTemplate(
             container('docker') {
                 sh """
                     set -e
+                    docker version
+
                     echo "Autenticando contra ECR..."
                     PASS=\$(cat "${ECR_PASSWORD_FILE}")
                     echo "\$PASS" | docker login \\
                       --username AWS \\
-                      --password-stdin ${ECR_REGISTRY}
+                      --password-stdin https://${ECR_REGISTRY}
 
                     echo "Build de la imagen: ${FULL_IMAGE}"
                     docker build \\
@@ -134,6 +137,9 @@ podTemplate(
 
                     echo "Push de la imagen a ECR..."
                     docker push ${FULL_IMAGE}
+
+                    # Opcional: borrar el archivo de password
+                    rm -f "${ECR_PASSWORD_FILE}"
                 """
             }
         }
