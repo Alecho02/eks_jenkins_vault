@@ -1,0 +1,40 @@
+pipeline {
+  agent {
+    kubernetes {
+      label 'ci-agent'
+      defaultContainer 'maven'
+    }
+  }
+
+  environment {
+    APP_DIR = 'prueba_v1c3nt3/app/microservice'
+    AWS_REGION = 'eu-west-1'
+    ECR_REPO  = '385205418910.dkr.ecr.eu-west-1.amazonaws.com/microservice-devops'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Build & Test') {
+      steps {
+        dir("${APP_DIR}") {
+          sh 'mvn -B clean test'
+        }
+      }
+    }
+
+    stage('Package') {
+      steps {
+        dir("${APP_DIR}") {
+          sh 'mvn -B package -DskipTests'
+        }
+      }
+    }
+
+    // Más adelante: Build imagen + push a ECR + Deploy a eks-development
+  }
+}

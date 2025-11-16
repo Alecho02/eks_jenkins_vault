@@ -15,8 +15,7 @@ spec:
       labels:
         app: jenkins
     spec:
-      serviceAccountName: jenkins        # ⬅️ aquí usas el SA que definiste en jenkins-rbac.yaml
-      # automountServiceAccountToken: true  # opcional, por defecto ya es true
+      serviceAccountName: jenkins
       containers:
         - name: jenkins
           image: jenkins/jenkins:lts-jdk17
@@ -39,4 +38,4 @@ spec:
               mountPath: /var/jenkins_home
       volumes:
         - name: jenkins-home
-          emptyDir: {}
+          emptyDir: {}       # <– SIN PVC, solo disco efímero
