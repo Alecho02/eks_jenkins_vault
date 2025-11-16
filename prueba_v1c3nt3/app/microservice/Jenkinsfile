@@ -1,45 +1,45 @@
-pipeline {
-    agent {
-        kubernetes {
-            // Usa la plantilla estática definida en Jenkins ("ci-agent")
-            inheritFrom 'ci-agent'
-            label 'ci-agent'
-            defaultContainer 'maven'
-        }
-    }
+// Jenkinsfile
 
-    environment {
-        // Dentro del workspace el repo se chequea completo,
-        // y como el Jenkinsfile está en app/microservice,
-        // la ruta relativa es simplemente:
-        APP_DIR = 'app/microservice'
-    }
+podTemplate(
+    label: 'ci-agent',
+    namespace: 'jenkins',
+    serviceAccount: 'jenkins',
+    containers: [
+        containerTemplate(
+            name: 'maven',
+            image: 'maven:3.9-eclipse-temurin-17',
+            ttyEnabled: true,
+            command: 'cat',
+            workingDir: '/home/jenkins/agent'
+        )
+    ]
+) {
+    node('ci-agent') {
 
-    stages {
+        def APP_DIR = 'app/microservice'
+
         stage('Checkout') {
-            steps {
-                checkout scm
-            }
+            checkout scm
         }
 
         stage('Build & Test') {
-            steps {
-                container('maven') {
-                    dir("${APP_DIR}") {
-                        sh 'mvn -B clean test'
-                    }
+            container('maven') {
+                dir(APP_DIR) {
+                    sh 'mvn -B clean test'
                 }
             }
         }
 
         stage('Package') {
-            steps {
-                container('maven') {
-                    dir("${APP_DIR}") {
-                        sh 'mvn -B package -DskipTests'
-                    }
+            container('maven') {
+                dir(APP_DIR) {
+                    sh 'mvn -B package -DskipTests'
                 }
             }
         }
+
+        // Aquí después añadimos:
+        // - Build & push Docker image a ECR
+        // - kubectl apply al namespace de dev
     }
 }
