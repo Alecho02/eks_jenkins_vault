@@ -1,4 +1,4 @@
-// Jenkinsfile - Jenkins en EKS, build+push a ECR, secretos en Vault y deploy a eks-development
+// Jenkinsfile - Jenkins en EKS, build+push a ECR y deploy a eks-development
 
 podTemplate(
     label: 'ci-agent',
@@ -34,7 +34,7 @@ podTemplate(
             args: '-c cat',
             workingDir: '/home/jenkins/agent',
             envVars: [
-                envVar(key: 'DOCKER_HOST',        value: 'tcp://localhost:2375'),
+                envVar(key: 'DOCKER_HOST',       value: 'tcp://localhost:2375'),
                 envVar(key: 'DOCKER_TLS_CERTDIR', value: '')
             ]
         ),
@@ -49,10 +49,12 @@ podTemplate(
             args: '--host=tcp://0.0.0.0:2375',
             workingDir: '/home/jenkins/agent',
             envVars: [
+                // Desactivar TLS en el daemon para que coincida con el cliente Docker
                 envVar(key: 'DOCKER_TLS_CERTDIR', value: '')
             ]
         )
     ],
+    // Donde Docker guardará sus capas (solo dentro del pod del build)
     volumes: [
         emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
     ]
@@ -72,57 +74,10 @@ podTemplate(
         def KUBECONFIG_FILE   = "${env.WORKSPACE}/kubeconfig"
         def ECR_PASSWORD_FILE = "${env.WORKSPACE}/ecr_password.txt"
 
-        // =========================
         stage('Checkout') {
             checkout scm
         }
 
-        // =========================
-        // 1. Leer secretos desde Vault
-        // =========================
-        stage('Vault - leer secretos') {
-            container('maven') {
-                // Credencial de tipo "Secret text" con el token de Vault (root en dev)
-                withCredentials([string(credentialsId: 'vault-token', variable: 'VAULT_TOKEN')]) {
-                    script {
-                        // Llamamos a Vault (http://vault.vault.svc.cluster.local:8200)
-                        def salida = sh(
-                            script: '''
-                                set -e
-
-                                # Instalamos curl y jq si no existen (Debian based)
-                                apt-get update >/dev/null 2>&1 || true
-                                apt-get install -y curl jq >/dev/null 2>&1 || true
-
-                                VAULT_ADDR="http://vault.vault.svc.cluster.local:8200"
-
-                                echo "Consultando Vault en $VAULT_ADDR ..."
-                                JSON=$(curl -s \
-                                  -H "X-Vault-Token: $VAULT_TOKEN" \
-                                  "$VAULT_ADDR/v1/secret/data/microservice")
-
-                                # Extraemos los campos que definiste en Vault
-                                SECRET_VALUE=$(echo "$JSON" | jq -r '.data.data.SECRET_VALUE')
-                                CONFIG_VALUE=$(echo "$JSON" | jq -r '.data.data.CONFIG_VALUE')
-
-                                # Devolvemos los dos valores en una sola línea
-                                echo "$SECRET_VALUE:::$CONFIG_VALUE"
-                            ''',
-                            returnStdout: true
-                        ).trim()
-
-                        def partes = salida.split(':::')
-                        env.SECRET_VALUE = partes[0]
-                        env.CONFIG_VALUE = partes[1]
-
-                        // Pequeño check (NO imprimir el secreto real en un caso real)
-                        echo "Vault: se obtuvo SECRET_VALUE y CONFIG_VALUE (no se muestran por seguridad)."
-                    }
-                }
-            }
-        }
-
-        // =========================
         stage('Build & Test (Maven)') {
             container('maven') {
                 dir(APP_DIR) {
@@ -131,7 +86,6 @@ podTemplate(
             }
         }
 
-        // =========================
         stage('Package (JAR)') {
             container('maven') {
                 dir(APP_DIR) {
@@ -140,7 +94,6 @@ podTemplate(
             }
         }
 
-        // =========================
         stage('Login ECR (AWS CLI)') {
             container('aws') {
                 withCredentials([[
@@ -159,7 +112,6 @@ podTemplate(
             }
         }
 
-        // =========================
         stage('Build & Push Docker image a ECR') {
             container('docker') {
                 sh """
@@ -182,9 +134,7 @@ podTemplate(
             }
         }
 
-        // =========================
-        // kubeconfig + Secret/ConfigMap + deploy en eks-development
-        // =========================
+        // kubeconfig + kubectl + deploy TODO EN EL CONTENEDOR "aws"
         stage('Deploy a EKS (dev)') {
             container('aws') {
                 withCredentials([[
@@ -198,9 +148,9 @@ podTemplate(
                         export AWS_REGION=${AWS_REGION}
 
                         echo "Actualizando kubeconfig..."
-                        aws eks update-kubeconfig \\
-                          --name ${EKS_CLUSTER} \\
-                          --region ${AWS_REGION} \\
+                        aws eks update-kubeconfig \
+                          --name ${EKS_CLUSTER} \
+                          --region ${AWS_REGION} \
                           --kubeconfig "${KUBECONFIG_FILE}"
 
                         echo "Instalando kubectl (si no existe)..."
@@ -214,29 +164,16 @@ podTemplate(
                           mv kubectl /usr/local/bin/kubectl
                         fi
 
-                        echo "Creando/actualizando Secret y ConfigMap con valores de Vault..."
-                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice \\
-                          create secret generic microservice-secrets \\
-                          --from-literal=SECRET_VALUE="${SECRET_VALUE}" \\
-                          --dry-run=client -o yaml | \\
-                          kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice apply -f -
-
-                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice \\
-                          create configmap microservice-config \\
-                          --from-literal=CONFIG_VALUE="${CONFIG_VALUE}" \\
-                          --dry-run=client -o yaml | \\
-                          kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice apply -f -
-
-                        echo "Aplicando manifiesto base (deployment, service, etc.)..."
+                        echo "Aplicando manifiesto base (namespace, service, etc.)..."
                         kubectl --kubeconfig="${KUBECONFIG_FILE}" apply -f ${K8S_MANIFEST}
 
                         echo "Actualizando deployment con la imagen del build..."
-                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice \\
-                          set image deployment/microservice-devops \\
+                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice \
+                          set image deployment/microservice-devops \
                           microservice-devops=${FULL_IMAGE} --record
 
                         echo "Esperando rollout..."
-                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice \\
+                        kubectl --kubeconfig="${KUBECONFIG_FILE}" -n microservice \
                           rollout status deployment/microservice-devops
 
                         echo "Pods en el namespace microservice:"
