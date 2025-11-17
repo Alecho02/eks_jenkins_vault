@@ -1,5 +1,3 @@
----
-
 ## 6. Documentación técnica
 
 ### 6.1 Instrucciones para levantar los clústeres
