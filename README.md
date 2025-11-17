@@ -269,26 +269,28 @@ El microservicio Java 17 (por ejemplo, Spring Boot) expone:
 Puedes incluir un diagrama hecho en draw.io / Lucidchart, o pegar este diagrama en Mermaid en el README y exportarlo como imagen:
 
 ```mermaid
+---
+config:
+  theme: default
+---
 flowchart LR
   Dev[Developer] -->|git push| GitHub[(GitHub Repo)]
-
   subgraph EKS_deploy [EKS - Cluster deployment]
-    JN[Jenkins Deployment\n(namespace jenkins)]
-    VT[Vault + Agent Injector\n(namespace vault)]
+    JN[Jenkins Deployment]
+    VT[Vault + Agent Injector]
   end
-
   subgraph EKS_dev [EKS - Cluster development]
     LB[Service type LoadBalancer]
     MS1[Pod microservice-1]
     MS2[Pod microservice-2]
   end
-
   GitHub -->|webhook / scan| JN
-  JN -->|API HTTP (token vault-token)| VT
+  JN -->|API HTTP - token vault-token| VT
   JN -->|build & push| ECR[(Amazon ECR)]
   JN -->|kubectl apply / set image| EKS_dev
   LB --> MS1
   LB --> MS2
+
 ```
 
 ---
@@ -527,28 +529,29 @@ Se recomienda incluir en la carpeta `docs/`:
 Ver el archivo `docs/arquitectura-ci-cd.png` generado a partir del siguiente diagrama Mermaid:
 
 ```mermaid
+---
+config:
+  theme: default
+---
 flowchart LR
   Dev[Developer] -->|git push| GitHub[(GitHub Repo)]
-  GitHub -->|webhook / scan| JN[Jenkins]
-
-  subgraph ClusterDeployment [EKS - deployment]
-    JN
-    VT[Vault]
+  subgraph EKS_deploy [EKS - Cluster deployment]
+    JN[Jenkins Deployment]
+    VT[Vault + Agent Injector]
   end
-
-  subgraph ClusterDevelopment [EKS - development]
-    LB[Service LoadBalancer]
+  subgraph EKS_dev [EKS - Cluster development]
+    LB[Service type LoadBalancer]
     MS1[Pod microservice-1]
     MS2[Pod microservice-2]
   end
-
-  JN -->|lee secretos| VT
-  JN -->|build & push| ECR[(ECR)]
-  JN -->|kubectl apply/set image| ClusterDevelopment
+  GitHub -->|webhook / scan| JN
+  JN -->|API HTTP - token vault-token| VT
+  JN -->|build & push| ECR[(Amazon ECR)]
+  JN -->|kubectl apply / set image| EKS_dev
   LB --> MS1
   LB --> MS2
-```
 
+```
 ---
 
 Con esto cubres exactamente lo que piden en:
