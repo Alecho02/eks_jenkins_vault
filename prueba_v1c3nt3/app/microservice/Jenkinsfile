@@ -1,7 +1,7 @@
 // Jenkinsfile - Jenkins en EKS, build+push a ECR y deploy a eks-development
 
 podTemplate(
-    label: 'ci-agent',
+    cloud: 'kubernetes',
     namespace: 'jenkins',
     serviceAccount: 'jenkins',
     containers: [
