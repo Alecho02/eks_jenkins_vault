@@ -1,5 +1,3 @@
----
-
 # Informe de resultados – Prueba Técnica DevOps
 
 ## 1. Resumen ejecutivo
